@@ -1,13 +1,18 @@
-// REFERENCE SOLUTION - Do not distribute to students
 // src/services/noteService.ts
-// TODO: Import functions like setDoc, deleteDoc, onSnapshot from Firebase Firestore to interact with the database
-import { DocumentData, QuerySnapshot, Unsubscribe } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  DocumentData,
+  onSnapshot,
+  QuerySnapshot,
+  setDoc,
+  Unsubscribe,
+} from 'firebase/firestore';
 
-// TODO: Import the Firestore instance from your Firebase configuration file
-// import { db } from '../firebase-config';
+import { db } from '../firebase-config';
 import { Note, Notes } from '../types/Note';
-// remove when you use the collection in the code
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 const NOTES_COLLECTION = 'notes';
 
 /**
@@ -15,11 +20,12 @@ const NOTES_COLLECTION = 'notes';
  * @param note Note object to save
  * @returns Promise that resolves when the note is saved
  */
-// remove when you implement the function
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function saveNote(note: Note): Promise<void> {
-  // TODO: save the note to Firestore in the NOTES_COLLECTION collection
-  // Use setDoc to create or update the note document; throw an error if it fails
+  // Create a document reference using the collection and note ID
+  const noteRef = doc(collection(db, NOTES_COLLECTION), note.id);
+
+  // Save the note to Firestore
+  await setDoc(noteRef, note);
 }
 
 /**
@@ -27,11 +33,12 @@ export async function saveNote(note: Note): Promise<void> {
  * @param noteId ID of the note to delete
  * @returns Promise that resolves when the note is deleted
  */
-// remove when you implement the function
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function deleteNote(noteId: string): Promise<void> {
-  // TODO: delete the note from Firestore in the NOTES_COLLECTION collection
-  // Use deleteDoc to remove the note document; throw an error if it fails
+  // Create a document reference using the collection and note ID
+  const noteRef = doc(collection(db, NOTES_COLLECTION), noteId);
+
+  // Delete the note from Firestore
+  await deleteDoc(noteRef);
 }
 
 /**
@@ -56,16 +63,44 @@ export function transformSnapshot(snapshot: QuerySnapshot<DocumentData>): Notes 
  * @param onError Optional error handler for testing
  * @returns Unsubscribe function to stop listening for changes
  */
-
 export function subscribeToNotes(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onNotesChange: (notes: Notes) => void,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  // TODO: subscribe to the notes collection in Firestore
-  // Use onSnapshot to listen for changes; call onNotesChange with the transformed notes
-  // Handle errors by calling onError if provided
-  // Return s proper (not empty) unsubscribe function to stop listening for changes
-  return () => {};
+  try {
+    // Get a reference to the notes collection
+    const notesCollection = collection(db, NOTES_COLLECTION);
+
+    // Subscribe to the collection using onSnapshot
+    const unsubscribe = onSnapshot(
+      notesCollection,
+      (snapshot) => {
+        // Transform the snapshot and call the callback
+        const notes = transformSnapshot(snapshot);
+        onNotesChange(notes);
+      },
+      (error) => {
+        // Handle errors by calling the error callback if provided
+        if (onError) {
+          onError(error);
+        } else {
+          // If no error handler provided, re-throw the error
+          throw error;
+        }
+      },
+    );
+
+    // Return the unsubscribe function
+    return unsubscribe;
+  } catch (error) {
+    // Handle synchronous errors (e.g., invalid collection reference)
+    if (onError) {
+      onError(error instanceof Error ? error : new Error('Unknown error'));
+    } else {
+      throw error;
+    }
+
+    // Return a no-op unsubscribe function
+    return () => {};
+  }
 }
